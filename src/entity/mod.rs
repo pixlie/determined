@@ -1,4 +1,4 @@
-use crate::error::DetResult;
+use crate::error::{DetError, DetResult};
 use date::DetDate;
 use serde::Deserialize;
 use ts_rs::TS;
@@ -74,7 +74,7 @@ Please extract data from the following text and respond only in JSON without pre
         }
     }
 
-    pub fn request_llm(&self, text: &str) -> Vec<ExtractedData> {
+    pub fn request_llm(&self, _text: &str) -> DetResult<Vec<ExtractedData>> {
         let mock_response = r#"
 [
     {
@@ -84,40 +84,40 @@ Please extract data from the following text and respond only in JSON without pre
         "starting_position": 31
     },
 ]"#;
-        let parsed_response: Vec<ExtractedData> = serde_json::from_str(mock_response);
-        parsed_response
+        match serde_json::from_str::<Vec<ExtractedData>>(mock_response) {
+            Ok(parsed) => Ok(parsed),
+            Err(e) => Err(DetError::InvalidJSONFromLLM(e.to_string())),
+        }
     }
 
-    pub fn process(&self, text: &str) -> Vec<DetResult<ExtractedEntity>> {
+    pub fn process(&self, text: &str) -> DetResult<Vec<DetResult<ExtractedData>>> {
         // Call AI with the prompt and pass the responses to the process functions of each requested data type
         let response_from_ai: Vec<ExtractedData> = self.request_llm(text)?;
 
         match self {
-            Self::EntityExtraction(requested_list) => requested_list
+            Self::EntityExtraction(requested_list) => Ok(requested_list
                 .iter()
                 .map(|requested_item| {
-                    let item_in_ai_response = response_from_ai
+                    match response_from_ai
                         .iter()
                         .find(|item| item.variable_name == requested_item.variable_name)
-                        .unwrap();
-                    match requested_item.entity_label {
-                        EntityLabel::Date => {
-                            DetDate::process(text, requested_item, item_in_ai_response)
-                        }
-                        _ => None,
+                    {
+                        Some(item_in_ai_response) => match requested_item.entity_label {
+                            EntityLabel::Date => {
+                                DetDate::process(text, requested_item, item_in_ai_response)
+                            }
+                            _ => Err(DetError::MissingItemInResponseFromLLM(
+                                requested_item.variable_name.clone(),
+                            )),
+                        },
+                        None => Err(DetError::MissingItemInResponseFromLLM(
+                            requested_item.variable_name.clone(),
+                        )),
                     }
                 })
-                .collect(),
+                .collect()),
         }
     }
-}
-
-#[derive(Deserialize, TS)]
-pub struct ExtractedEntity {
-    pub entity_label: EntityLabel,
-    pub matched_text: String,
-    pub variable_name: String,
-    pub start: usize,
 }
 
 #[cfg(test)]
@@ -164,18 +164,23 @@ You made a purchase of Rs. 454 on Jan 23, 2022 at 10:32 AM."#
             variable_name: "transaction_date".to_string(),
         }]);
 
-        let result =
-            match request.process("You made a purchase of Rs. 454 on Jan 23, 2022 at 10:32 AM.") {
-                Ok(entities) => {
-                    assert_eq!(entities.len(), 1);
-                    let extracted_date = &entities[0];
+        let extracted =
+            request.process("You made a purchase of Rs. 454 on Jan 23, 2022 at 10:32 AM.");
+        assert!(extracted.is_ok());
 
-                    assert_eq!(extracted_date.entity_label, EntityLabel::Date);
-                    assert_eq!(extracted_date.matched_text, "Jan 23, 2022");
-                    assert_eq!(extracted_date.variable_name, "transaction_date");
-                    assert_eq!(extracted_date.start, 34);
+        let extracted = extracted.unwrap();
+        assert_eq!(extracted.len(), 1);
+
+        for extracted_item in extracted {
+            match extracted_item {
+                Ok(extracted_data) => {
+                    assert_eq!(extracted_data.label, EntityLabel::Date);
+                    assert_eq!(extracted_data.matched_text, "Jan 23, 2022");
+                    assert_eq!(extracted_data.variable_name, "transaction_date");
+                    assert_eq!(extracted_data.starting_position, 34);
                 }
                 Err(err) => panic!("Did not get expected entities: {}", err),
-            };
+            }
+        }
     }
 }

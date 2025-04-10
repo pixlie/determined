@@ -1,4 +1,4 @@
-use super::{EntityExtractionRequest, EntityLabel, ExtractedData, ExtractedEntity};
+use super::{EntityExtractionRequest, EntityLabel, ExtractedData};
 use crate::error::DetResult;
 pub struct DetDate;
 
@@ -12,13 +12,13 @@ impl DetDate {
         _text: &str,
         extraction_request: &EntityExtractionRequest,
         extracted_data: &ExtractedData,
-    ) -> DetResult<ExtractedEntity> {
+    ) -> DetResult<ExtractedData> {
         // This would take the `ExtractedEntity` and return a Rust native `Date` object
-        Ok(ExtractedEntity {
-            entity_label: EntityLabel::Date,
+        Ok(ExtractedData {
+            label: EntityLabel::Date,
             matched_text: "Jan 23, 2022".to_string(),
             variable_name: extraction_request.variable_name.clone(),
-            start: 34,
+            starting_position: 34,
         })
     }
 }
