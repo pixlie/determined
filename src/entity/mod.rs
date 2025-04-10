@@ -82,7 +82,7 @@ Please extract data from the following text and respond only in JSON without pre
         "matched_text": "Jan 23, 2022",
         "variable_name": "transaction_date",
         "starting_position": 31
-    },
+    }
 ]"#;
         match serde_json::from_str::<Vec<ExtractedData>>(mock_response) {
             Ok(parsed) => Ok(parsed),
