@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = { version = "0.4.40", default-features = false }
+human-date-parser = { version = "0.3.1", default-features = false }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.140", default-features = false, features = ["std"] }
 thiserror = { version = "2.0.12", default-features = false }

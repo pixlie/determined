@@ -10,6 +10,9 @@ pub enum DetError {
 
     #[error("Missing item in response from LLM: {0}")]
     MissingItemInResponseFromLLM(String),
+
+    #[error("Parse error: {0}")]
+    ParseError(String),
 }
 
 pub type DetResult<T> = Result<T, DetError>;

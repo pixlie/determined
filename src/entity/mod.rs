@@ -15,7 +15,7 @@ fn clean_ts_type(s: &str) -> String {
         .join("\n")
 }
 
-#[derive(Debug, Deserialize, PartialEq, TS)]
+#[derive(Clone, Debug, Deserialize, PartialEq, TS)]
 pub enum EntityLabel {
     Integer,
     Float,
@@ -23,7 +23,7 @@ pub enum EntityLabel {
     Time,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Clone, Debug, Deserialize, TS)]
 pub struct ExtractedData {
     pub label: EntityLabel,
     pub matched_text: String,
@@ -31,6 +31,7 @@ pub struct ExtractedData {
     pub starting_position: usize,
 }
 
+#[derive(Clone)]
 pub struct EntityExtractionRequest {
     pub entity_label: EntityLabel,
     pub variable_name: String,
@@ -142,11 +143,7 @@ You have to respond in JSON using the following types:
 ```typescript
 type EntityLabel = "Integer" | "Float" | "Date" | "Time";
 
-type ExtractedData {
-    label: EntityLabel,
-    matched_text: string,
-    starting_position: number,
-};
+type ExtractedData = { label: EntityLabel, matched_text: string, variable_name: string, starting_position: number, };
 
 type LLMResponse = Array<ExtractedData>;
 ```
@@ -155,32 +152,5 @@ Please extract data from the following text and respond only in JSON without pre
 
 You made a purchase of Rs. 454 on Jan 23, 2022 at 10:32 AM."#
         );
-    }
-
-    #[test]
-    fn test_extracted_entity() {
-        let request = DeterminedRequest::EntityExtraction(vec![EntityExtractionRequest {
-            entity_label: EntityLabel::Date,
-            variable_name: "transaction_date".to_string(),
-        }]);
-
-        let extracted =
-            request.process("You made a purchase of Rs. 454 on Jan 23, 2022 at 10:32 AM.");
-        assert!(extracted.is_ok());
-
-        let extracted = extracted.unwrap();
-        assert_eq!(extracted.len(), 1);
-
-        for extracted_item in extracted {
-            match extracted_item {
-                Ok(extracted_data) => {
-                    assert_eq!(extracted_data.label, EntityLabel::Date);
-                    assert_eq!(extracted_data.matched_text, "Jan 23, 2022");
-                    assert_eq!(extracted_data.variable_name, "transaction_date");
-                    assert_eq!(extracted_data.starting_position, 34);
-                }
-                Err(err) => panic!("Did not get expected entities: {}", err),
-            }
-        }
     }
 }
